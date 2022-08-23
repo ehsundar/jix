@@ -1,4 +1,4 @@
-POST http://localhost:8080/
+POST http://localhost:8080/?sort=year
 Content-Type: application/json
 Authorization: Amir
 

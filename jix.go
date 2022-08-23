@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"reflect"
 )
 
@@ -27,6 +28,7 @@ func (j *Jixer[Req, Resp]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if j.fillQueries {
 		ctx = context.WithValue(ctx, "queries", r.URL.Query())
+		j.fillRequestFromQueryParams(&req, r.URL.Query())
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -51,6 +53,11 @@ func (j *Jixer[Req, Resp]) WithFillRequestFromHeader(fill bool) *Jixer[Req, Resp
 	return j
 }
 
+func (j *Jixer[Req, Resp]) WithFillRequestFromQuery(fill bool) *Jixer[Req, Resp] {
+	j.fillQueries = fill
+	return j
+}
+
 func (j *Jixer[Req, Resp]) fillRequestFromHeader(r *Req, headers http.Header) {
 	recType := reflect.TypeOf(*r)
 	for i := 0; i < recType.NumField(); i++ {
@@ -58,6 +65,19 @@ func (j *Jixer[Req, Resp]) fillRequestFromHeader(r *Req, headers http.Header) {
 		tag := field.Tag.Get("jix-header")
 		if tag != "" {
 			if val := headers.Get(tag); val != "" {
+				reflect.ValueOf(r).Elem().Field(i).SetString(val)
+			}
+		}
+	}
+}
+
+func (j *Jixer[Req, Resp]) fillRequestFromQueryParams(r *Req, queryParams url.Values) {
+	recType := reflect.TypeOf(*r)
+	for i := 0; i < recType.NumField(); i++ {
+		field := recType.Field(i)
+		tag := field.Tag.Get("jix-query")
+		if tag != "" {
+			if val := queryParams.Get(tag); val != "" {
 				reflect.ValueOf(r).Elem().Field(i).SetString(val)
 			}
 		}
