@@ -9,14 +9,15 @@ import (
 func main() {
 	jixed := jix.Jixed(handler).
 		WithFillRequestFromHeader(true).
-		WithFillRequestFromQuery(true)
+		WithFillRequestFromQuery(true).
+		WithFillHeadersFromResponse(true)
 	http.ListenAndServe(":8080", jixed)
 }
 
 func handler(ctx context.Context, req *Request) (*Response, error) {
 	print(req.AuthToken)
 	print(req.SortBy)
-	return &Response{Message: "Hello, world!"}, nil
+	return &Response{Message: "Hello, world!", ValidUntil: "2023"}, nil
 }
 
 type Request struct {
@@ -26,5 +27,6 @@ type Request struct {
 }
 
 type Response struct {
-	Message string `json:"message"`
+	Message    string `json:"message"`
+	ValidUntil string `json:"-" jix-header:"X-Valid-Until"`
 }
