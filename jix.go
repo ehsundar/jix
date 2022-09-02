@@ -3,6 +3,8 @@ package jix
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -11,7 +13,8 @@ import (
 type Handler[Req, Resp any] func(context.Context, *Req) (*Resp, error)
 
 type Jixer[Req, Resp any] struct {
-	handler Handler[Req, Resp]
+	handler      Handler[Req, Resp]
+	statusMapper map[error]int
 
 	fillRequestHeaders  bool
 	fillResponseHeaders bool
@@ -19,7 +22,14 @@ type Jixer[Req, Resp any] struct {
 }
 
 func Jixed[Req, Resp any](handler Handler[Req, Resp]) *Jixer[Req, Resp] {
-	return &Jixer[Req, Resp]{handler: handler}
+	j := &Jixer[Req, Resp]{
+		handler:      handler,
+		statusMapper: make(map[error]int),
+	}
+
+	j.WithErrorToStatusMapping(errorToStatusMap)
+
+	return j
 }
 
 func (j *Jixer[Req, Resp]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +49,8 @@ func (j *Jixer[Req, Resp]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := j.handler(ctx, &req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		status := j.getStatusFromError(err)
+		http.Error(w, err.Error(), status)
 		return
 	}
 
@@ -66,6 +77,13 @@ func (j *Jixer[Req, Resp]) WithFillHeadersFromResponse(fill bool) *Jixer[Req, Re
 
 func (j *Jixer[Req, Resp]) WithFillRequestFromQuery(fill bool) *Jixer[Req, Resp] {
 	j.fillQueries = fill
+	return j
+}
+
+func (j *Jixer[Req, Resp]) WithErrorToStatusMapping(m map[error]int) *Jixer[Req, Resp] {
+	for err, code := range m {
+		j.statusMapper[err] = code
+	}
 	return j
 }
 
@@ -117,4 +135,21 @@ func (j *Jixer[Req, Resp]) fillRequestFromQueryParams(r *Req, queryParams url.Va
 			}
 		}
 	}
+}
+
+func (j *Jixer[Req, Resp]) getStatusFromError(err error) int {
+	status, ok := j.statusMapper[err]
+	if ok {
+		return status
+	}
+
+	for e, code := range j.statusMapper {
+		if errors.Is(err, e) {
+			return code
+		}
+	}
+
+	logrus.Warnf("no status specified in jixed handler error mapping for: %s", err)
+
+	return http.StatusInternalServerError
 }
