@@ -1,6 +1,7 @@
 package jix
 
 import (
+	"encoding/json"
 	"github.com/gorilla/mux"
 	"net/http"
 	"reflect"
@@ -63,5 +64,14 @@ func QueryExtractor[Req any](r *http.Request, req Req) (enrichedReq Req, err err
 		}
 	}
 
+	return
+}
+
+func BodyExtractor[Req any](r *http.Request, req Req) (enrichedReq Req, err error, statusCode int) {
+	enrichedReq = req
+	if err = json.NewDecoder(r.Body).Decode(&enrichedReq); err != nil {
+		statusCode = http.StatusBadRequest
+		return
+	}
 	return
 }

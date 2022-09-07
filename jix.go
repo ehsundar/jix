@@ -28,6 +28,7 @@ func Jixed[Req, Resp any](handler Handler[Req, Resp]) *Jixer[Req, Resp] {
 		requestExtractors: make([]RequestExtractor[Req], 0),
 	}
 
+	j.WithRequestExtractors(BodyExtractor[Req])
 	j.WithErrorToStatusMapping(errorToStatusMap)
 
 	return j
@@ -48,11 +49,6 @@ func (j *Jixer[Req, Resp]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		req = newRequest
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
 	}
 
 	resp, err := j.handler(ctx, &req)
