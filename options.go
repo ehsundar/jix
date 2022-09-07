@@ -1,8 +1,7 @@
 package jix
 
-func (j *Jixer[Req, Resp]) WithFillRequestFromHeader(fill bool) *Jixer[Req, Resp] {
-	j.fillRequestHeaders = fill
-	return j
+func (j *Jixer[Req, Resp]) WithFillRequestFromHeader() *Jixer[Req, Resp] {
+	return j.WithRequestExtractors(HeaderExtractor[Req])
 }
 
 func (j *Jixer[Req, Resp]) WithFillHeadersFromResponse(fill bool) *Jixer[Req, Resp] {
@@ -10,9 +9,8 @@ func (j *Jixer[Req, Resp]) WithFillHeadersFromResponse(fill bool) *Jixer[Req, Re
 	return j
 }
 
-func (j *Jixer[Req, Resp]) WithFillRequestFromQuery(fill bool) *Jixer[Req, Resp] {
-	j.fillQueries = fill
-	return j
+func (j *Jixer[Req, Resp]) WithFillRequestFromQuery() *Jixer[Req, Resp] {
+	return j.WithRequestExtractors(QueryExtractor[Req])
 }
 
 func (j *Jixer[Req, Resp]) WithErrorToStatusMapping(m map[error]int) *Jixer[Req, Resp] {

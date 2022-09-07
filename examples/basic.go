@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 	"jix"
 	"net/http"
 )
@@ -27,8 +28,7 @@ type Response struct {
 }
 
 func handler(ctx context.Context, req *Request) (*Response, error) {
-	print(req.AuthToken)
-	print(req.SortBy)
+	logrus.Infof("%+v", req)
 	if len(req.Name) == 0 {
 		return nil, fmt.Errorf("%s: %w", ErrNoNameProvided, jix.ErrAborted)
 	}
@@ -41,8 +41,8 @@ func handler(ctx context.Context, req *Request) (*Response, error) {
 
 func main() {
 	jixed := jix.Jixed(handler).
-		WithFillRequestFromHeader(true).
-		WithFillRequestFromQuery(true).
+		WithFillRequestFromHeader().
+		WithFillRequestFromQuery().
 		WithFillHeadersFromResponse(true).
 		WithErrorToStatusMapping(map[error]int{
 			ErrNoNameProvided: 400,
