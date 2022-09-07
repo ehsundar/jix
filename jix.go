@@ -13,8 +13,9 @@ import (
 type Handler[Req, Resp any] func(context.Context, *Req) (*Resp, error)
 
 type Jixer[Req, Resp any] struct {
-	handler      Handler[Req, Resp]
-	statusMapper map[error]int
+	handler           Handler[Req, Resp]
+	statusMapper      map[error]int
+	requestExtractors []RequestExtractor[Req]
 
 	fillRequestHeaders  bool
 	fillResponseHeaders bool
@@ -23,8 +24,9 @@ type Jixer[Req, Resp any] struct {
 
 func Jixed[Req, Resp any](handler Handler[Req, Resp]) *Jixer[Req, Resp] {
 	j := &Jixer[Req, Resp]{
-		handler:      handler,
-		statusMapper: make(map[error]int),
+		handler:           handler,
+		statusMapper:      make(map[error]int),
+		requestExtractors: make([]RequestExtractor[Req], 0),
 	}
 
 	j.WithErrorToStatusMapping(errorToStatusMap)
@@ -41,6 +43,15 @@ func (j *Jixer[Req, Resp]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	j.fillRequestFromHeader(&req, r.Header)
 	j.fillRequestFromQueryParams(&req, r.URL.Query())
+
+	for _, ext := range j.requestExtractors {
+		newResponse, err, statusCode := ext(r, req)
+		if err != nil {
+			http.Error(w, err.Error(), statusCode)
+			return
+		}
+		req = newResponse
+	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -63,28 +74,6 @@ func (j *Jixer[Req, Resp]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
-
-func (j *Jixer[Req, Resp]) WithFillRequestFromHeader(fill bool) *Jixer[Req, Resp] {
-	j.fillRequestHeaders = fill
-	return j
-}
-
-func (j *Jixer[Req, Resp]) WithFillHeadersFromResponse(fill bool) *Jixer[Req, Resp] {
-	j.fillResponseHeaders = fill
-	return j
-}
-
-func (j *Jixer[Req, Resp]) WithFillRequestFromQuery(fill bool) *Jixer[Req, Resp] {
-	j.fillQueries = fill
-	return j
-}
-
-func (j *Jixer[Req, Resp]) WithErrorToStatusMapping(m map[error]int) *Jixer[Req, Resp] {
-	for err, code := range m {
-		j.statusMapper[err] = code
-	}
-	return j
 }
 
 func (j *Jixer[Req, Resp]) fillRequestFromHeader(r *Req, headers http.Header) {
